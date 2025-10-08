@@ -23,15 +23,26 @@ const saveToStorage = (tasks) => {
 };
 
 // Initialize ApperClient for Edge function invocation
-const { ApperClient } = window.ApperSDK;
-const apperClient = new ApperClient({
-  apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
-  apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
-});
+let apperClient = null;
+
+const initializeApperClient = () => {
+  if (!apperClient) {
+    if (!window.ApperSDK || !window.ApperSDK.ApperClient) {
+      throw new Error('ApperSDK not loaded. Ensure the SDK script is included in index.html.');
+    }
+    const { ApperClient } = window.ApperSDK;
+    apperClient = new ApperClient({
+      apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
+      apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
+    });
+  }
+  return apperClient;
+};
 
 const sendWebhook = async (task) => {
   try {
-    const result = await apperClient.functions.invoke(
+    const client = initializeApperClient();
+    const result = await client.functions.invoke(
       import.meta.env.VITE_SEND_TASK_WEBHOOK,
       {
         body: JSON.stringify({ task }),
