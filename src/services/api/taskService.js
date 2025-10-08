@@ -1,7 +1,6 @@
 import tasksData from "@/services/mockData/tasks.json";
 
 const STORAGE_KEY = "taskflow_tasks";
-const WEBHOOK_URL = "https://webhook.site/9dd90ca4-8f1d-4037-938a-cf214154ba98";
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -23,29 +22,33 @@ const saveToStorage = (tasks) => {
   }
 };
 
+// Initialize ApperClient for Edge function invocation
+const { ApperClient } = window.ApperSDK;
+const apperClient = new ApperClient({
+  apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
+  apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
+});
+
 const sendWebhook = async (task) => {
   try {
-    const payload = {
-      event: "task_created",
-      task: task,
-      timestamp: new Date().toISOString()
-    };
+    const result = await apperClient.functions.invoke(
+      import.meta.env.VITE_SEND_TASK_WEBHOOK,
+      {
+        body: JSON.stringify({ task }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
-    const response = await fetch(WEBHOOK_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Webhook failed: ${response.status}`);
+    if (result.success === false) {
+      console.info(`apper_info: Got an error in this function: ${import.meta.env.VITE_SEND_TASK_WEBHOOK}. The response body is: ${JSON.stringify(result)}.`);
+      return { success: false, error: result.error };
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.info(`apper_info: Got this error in this function: ${import.meta.env.VITE_SEND_TASK_WEBHOOK}. The error is: ${error.message}`);
     return { success: false, error: error.message };
   }
 };
