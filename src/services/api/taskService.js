@@ -15,7 +15,7 @@ const loadFromStorage = () => {
     return JSON.parse(stored);
   } catch (error) {
     console.error("Error loading from storage:", error);
-    return [...tasksData];
+    return JSON.parse(JSON.stringify(tasksData));
   }
 };
 
