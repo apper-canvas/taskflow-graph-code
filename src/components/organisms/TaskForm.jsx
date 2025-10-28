@@ -9,7 +9,7 @@ import Button from "@/components/atoms/Button";
 import taskService from "@/services/api/taskService";
 
 const TaskForm = ({ onTaskCreated }) => {
-const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState({
     title: "",
     description: "",
     priority: "medium",
@@ -17,33 +17,9 @@ const [formData, setFormData] = useState({
     category: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-const handleGenerateDescription = async () => {
-    if (!formData.title.trim()) {
-      toast.error("Please enter a task title first");
-      return;
-    }
-
-    try {
-      setIsGenerating(true);
-      const result = await taskService.callBhusanFunction();
-      
-      if (result && result.message) {
-        setFormData(prev => ({
-          ...prev,
-          description: result.message
-        }));
-        toast.success("Description generated successfully!");
-      }
-    } catch (error) {
-      toast.error(error.message || "Failed to generate description");
-    } finally {
-      setIsGenerating(false);
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -106,38 +82,15 @@ const handleGenerateDescription = async () => {
           onChange={(e) => handleChange("title", e.target.value)}
           placeholder="What needs to be done?"
         />
-<div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="block text-sm font-semibold text-gray-700">
-              Description
-            </label>
-            <Button
-              type="button"
-              onClick={handleGenerateDescription}
-              disabled={!formData.title.trim() || isGenerating}
-              variant="outline"
-              className="text-xs py-1.5 px-3 h-auto"
-            >
-              {isGenerating ? (
-                <>
-                  <ApperIcon name="Loader2" size={14} className="animate-spin" />
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <ApperIcon name="Sparkles" size={14} />
-                  <span>Generate Description</span>
-                </>
-              )}
-            </Button>
-          </div>
+
+        <FormField label="Description">
           <Textarea
             value={formData.description}
             onChange={(e) => handleChange("description", e.target.value)}
             placeholder="Add more details..."
             rows={3}
           />
-        </div>
+        </FormField>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <FormField label="Priority">
