@@ -3,10 +3,16 @@ import tasksData from "@/services/mockData/tasks.json";
 const STORAGE_KEY = "taskflow_tasks";
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const loadFromStorage = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [...tasksData];
+    if (!stored) {
+      const initialTasks = JSON.parse(JSON.stringify(tasksData));
+      saveToStorage(initialTasks);
+      return initialTasks;
+    }
+    return JSON.parse(stored);
   } catch (error) {
     console.error("Error loading from storage:", error);
     return [...tasksData];
@@ -21,7 +27,6 @@ const saveToStorage = (tasks) => {
   }
 };
 
-// Initialize ApperClient for Edge function invocation
 let apperClient = null;
 
 const initializeApperClient = () => {
@@ -97,7 +102,7 @@ const taskService = {
     return task ? { ...task } : null;
   },
 
-  create: async (taskData) => {
+create: async (taskData) => {
     try {
       await delay(300);
       const tasks = loadFromStorage();
@@ -108,7 +113,6 @@ const taskService = {
       
       const newTask = {
         Id: maxId + 1,
-        id: `task_${Date.now()}`,
         title: taskData.title,
         description: taskData.description || "",
         completed: false,
