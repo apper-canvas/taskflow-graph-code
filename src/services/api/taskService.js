@@ -7,12 +7,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const loadFromStorage = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) {
-      const initialTasks = JSON.parse(JSON.stringify(tasksData));
-      saveToStorage(initialTasks);
-      return initialTasks;
-    }
-    return JSON.parse(stored);
+    return stored ? JSON.parse(stored) : [...tasksData];
   } catch (error) {
     console.error("Error loading from storage:", error);
     return [...tasksData];
@@ -27,26 +22,16 @@ const saveToStorage = (tasks) => {
   }
 };
 
-let apperClient = null;
-
-const initializeApperClient = () => {
-  if (!apperClient) {
-    if (!window.ApperSDK || !window.ApperSDK.ApperClient) {
-      throw new Error('ApperSDK not loaded. Ensure the SDK script is included in index.html.');
-    }
-    const { ApperClient } = window.ApperSDK;
-    apperClient = new ApperClient({
-      apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
-      apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
-    });
-  }
-  return apperClient;
-};
+// Initialize ApperClient for Edge function invocation
+const { ApperClient } = window.ApperSDK;
+const apperClient = new ApperClient({
+  apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
+  apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
+});
 
 const sendWebhook = async (task) => {
   try {
-    const client = initializeApperClient();
-    const result = await client.functions.invoke(
+    const result = await apperClient.functions.invoke(
       import.meta.env.VITE_SEND_TASK_WEBHOOK,
       {
         body: JSON.stringify({ task }),
@@ -67,27 +52,7 @@ const sendWebhook = async (task) => {
     return { success: false, error: error.message };
   }
 };
-const callBhusanFunction = async () => {
-  try {
-    const client = initializeApperClient();
-    const result = await client.functions.invoke(import.meta.env.VITE_BHUSAN_TEST, {
-      body: JSON.stringify({}),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
 
-    if (result.success === false) {
-      console.info(`apper_info: Got an error in this function: ${import.meta.env.VITE_BHUSAN_TEST}. The response body is: ${JSON.stringify(result)}.`);
-      throw new Error(result.message || 'Failed to generate description');
-    }
-
-    return result;
-  } catch (error) {
-    console.info(`apper_info: Got this error in this function: ${import.meta.env.VITE_BHUSAN_TEST}. The error is: ${error.message}`);
-    throw error;
-  }
-};
 const taskService = {
   getAll: async () => {
     await delay(300);
@@ -102,39 +67,36 @@ const taskService = {
     return task ? { ...task } : null;
   },
 
-create: async (taskData) => {
-    try {
-      await delay(300);
-      const tasks = loadFromStorage();
-      
-      const maxId = tasks.length > 0 
-        ? Math.max(...tasks.map(t => t.Id))
-        : 0;
-      
-      const newTask = {
-        Id: maxId + 1,
-        title: taskData.title,
-        description: taskData.description || "",
-        completed: false,
-        priority: taskData.priority || "medium",
-        dueDate: taskData.dueDate || null,
-        category: taskData.category || "",
-        createdAt: new Date().toISOString(),
-        completedAt: null
-      };
-      
-      tasks.push(newTask);
-      saveToStorage(tasks);
-      
-      const webhookResult = await sendWebhook(newTask);
-      
-      return { 
-        task: { ...newTask },
-        webhookResult 
-      };
-    } catch (error) {
-      throw new Error(error.message || "Failed to create task");
-    }
+  create: async (taskData) => {
+    await delay(300);
+    const tasks = loadFromStorage();
+    
+    const maxId = tasks.length > 0 
+      ? Math.max(...tasks.map(t => t.Id))
+      : 0;
+    
+    const newTask = {
+      Id: maxId + 1,
+      id: `task_${Date.now()}`,
+      title: taskData.title,
+      description: taskData.description || "",
+      completed: false,
+      priority: taskData.priority || "medium",
+      dueDate: taskData.dueDate || null,
+      category: taskData.category || "",
+      createdAt: new Date().toISOString(),
+      completedAt: null
+    };
+    
+    tasks.push(newTask);
+    saveToStorage(tasks);
+    
+    const webhookResult = await sendWebhook(newTask);
+    
+    return { 
+      task: { ...newTask },
+      webhookResult 
+    };
   },
 
   update: async (id, updates) => {
@@ -170,9 +132,7 @@ create: async (taskData) => {
     const filteredTasks = tasks.filter(t => t.Id !== parseInt(id));
     saveToStorage(filteredTasks);
     return { success: true };
-  },
-
-  callBhusanFunction
+  }
 };
 
 export default taskService;
